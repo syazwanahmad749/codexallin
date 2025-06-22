@@ -1284,7 +1284,8 @@ const GENERATING_BUTTON_TEXT = 'Deconstructing...';
 const COPY_BUTTON_TEXT = 'Copy';
 const COPIED_BUTTON_TEXT = 'Copied!';
 const INIT_FALLBACK_DELAY = 7000;
-const FAB_CONTAINER_ID = 'vfx-decon-fab-container';
+// Reuse the Enhancer FAB container so all tools share one menu
+const FAB_CONTAINER_ID = 'vfx-fab-container';
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
@@ -1743,14 +1744,19 @@ const createUI = () => {
 };
 
 const initializeFab = () => {
-    // Avoid re-creating the FAB if script runs multiple times
-    if (document.getElementById(FAB_CONTAINER_ID)) return;
-    const fabContainer = document.createElement('div');
-    fabContainer.id = FAB_CONTAINER_ID;
-    const mainFab = createModalButton('Image Deconstructor', ['vfx-fab-main'], openOverlay, 'splitscreen');
-    fabContainer.append(mainFab);
-    makeDraggable(fabContainer, mainFab); // Make the button itself the drag handle
-    document.body.appendChild(fabContainer);
+    const fabContainer = document.getElementById(FAB_CONTAINER_ID);
+    if (!fabContainer) return;
+    if (fabContainer.querySelector('#fab-action-deconstruct')) return;
+    const itemWrapper = document.createElement('div');
+    itemWrapper.className = 'vfx-fab-item';
+    const mainFab = createModalButton('', ['vfx-fab', 'vfx-fab-secondary'], openOverlay, 'splitscreen');
+    mainFab.id = 'fab-action-deconstruct';
+    const tooltip = document.createElement('span');
+    tooltip.className = 'vfx-tooltip';
+    tooltip.textContent = 'Image Deconstructor';
+    itemWrapper.append(mainFab, tooltip);
+    fabContainer.appendChild(itemWrapper);
+    makeDraggable(fabContainer, mainFab);
     console.log("VideoFX Image Deconstructor: FAB Initialized.");
 };
 
@@ -1800,7 +1806,8 @@ const fallbackTimeoutId = setTimeout(() => {
     const COPY_BUTTON_TEXT = 'Copy';
     const COPIED_BUTTON_TEXT = 'Copied!';
     const INIT_FALLBACK_DELAY = 7000;
-    const FAB_CONTAINER_ID = 'vfx-i2p-fab-container';
+    // Share the main Enhancer FAB container
+    const FAB_CONTAINER_ID = 'vfx-fab-container';
     const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
     const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
@@ -2146,12 +2153,19 @@ const fallbackTimeoutId = setTimeout(() => {
     };
 
     const initializeFab = () => {
-        const fabContainer = document.createElement('div');
-        fabContainer.id = FAB_CONTAINER_ID;
-        const mainFab = createModalButton('Image-to-Prompt', ['vfx-fab-main'], openOverlay, 'image_search');
-        fabContainer.append(mainFab);
-        document.body.appendChild(fabContainer);
-        console.log("VideoFX Promptless Generator: FAB Initialized.");
+        const fabContainer = document.getElementById(FAB_CONTAINER_ID);
+        if (!fabContainer) return;
+        if (fabContainer.querySelector('#fab-action-i2p')) return;
+        const itemWrapper = document.createElement('div');
+        itemWrapper.className = 'vfx-fab-item';
+        const mainFab = createModalButton('', ['vfx-fab', 'vfx-fab-secondary'], openOverlay, 'image_search');
+        mainFab.id = 'fab-action-i2p';
+        const tooltip = document.createElement('span');
+        tooltip.className = 'vfx-tooltip';
+        tooltip.textContent = 'Image-to-Prompt';
+        itemWrapper.append(mainFab, tooltip);
+        fabContainer.appendChild(itemWrapper);
+        console.log("VideoFX Promptless Generator: FAB action added.");
     };
 
     const initObserver = new MutationObserver((mutationsList, obs) => {
