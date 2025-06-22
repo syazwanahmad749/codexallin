@@ -1749,7 +1749,13 @@ const initializeFab = () => {
     if (fabContainer.querySelector('#fab-action-deconstruct')) return;
     const itemWrapper = document.createElement('div');
     itemWrapper.className = 'vfx-fab-item';
-    const mainFab = createModalButton('', ['vfx-fab', 'vfx-fab-secondary'], openOverlay, 'splitscreen');
+    const mainFab = createModalButton('', ['vfx-fab', 'vfx-fab-secondary'], () => {
+        if (window.openAnalysisModal) {
+            window.openAnalysisModal('decon');
+        } else {
+            openOverlay();
+        }
+    }, 'splitscreen');
     mainFab.id = 'fab-action-deconstruct';
     const tooltip = document.createElement('span');
     tooltip.className = 'vfx-tooltip';
@@ -1789,6 +1795,9 @@ const fallbackTimeoutId = setTimeout(() => {
 (function (arr) { arr.forEach(function (item) { if (item.hasOwnProperty('append')) { return; } Object.defineProperty(item, 'append', { configurable: true, enumerable: true, writable: true, value: function append() { var argArr = Array.prototype.slice.call(arguments), docFrag = document.createDocumentFragment(); argArr.forEach(function (argItem) { var isNode = argItem instanceof Node; docFrag.appendChild(isNode ? argItem : document.createTextNode(String(argItem))); }); this.appendChild(docFrag); } }); });})([Element.prototype, Document.prototype, DocumentFragment.prototype]);
 
 })();
+// Expose for combined tools window
+window.VideoFXTools = window.VideoFXTools || {};
+window.VideoFXTools.deconstructor = { createUI, overlayId: OVERLAY_ID };
 
 // --- Promptless Image-to-Prompt Generator -------------------------------
 (function () {
@@ -2158,7 +2167,13 @@ const fallbackTimeoutId = setTimeout(() => {
         if (fabContainer.querySelector('#fab-action-i2p')) return;
         const itemWrapper = document.createElement('div');
         itemWrapper.className = 'vfx-fab-item';
-        const mainFab = createModalButton('', ['vfx-fab', 'vfx-fab-secondary'], openOverlay, 'image_search');
+        const mainFab = createModalButton('', ['vfx-fab', 'vfx-fab-secondary'], () => {
+            if (window.openAnalysisModal) {
+                window.openAnalysisModal('i2p');
+            } else {
+                openOverlay();
+            }
+        }, 'image_search');
         mainFab.id = 'fab-action-i2p';
         const tooltip = document.createElement('span');
         tooltip.className = 'vfx-tooltip';
@@ -2190,5 +2205,120 @@ const fallbackTimeoutId = setTimeout(() => {
     }, INIT_FALLBACK_DELAY);
 
     function createIconSpanHTML(iconName) { return `<span class="material-symbols-outlined" aria-hidden="true">${iconName}</span>`; }
-    (function (arr) { arr.forEach(function (item) { if (item.hasOwnProperty('append')) { return; } Object.defineProperty(item, 'append', { configurable: true, enumerable: true, writable: true, value: function append() { var argArr = Array.prototype.slice.call(arguments), docFrag = document.createDocumentFragment(); argArr.forEach(function (argItem) { var isNode = argItem instanceof Node; docFrag.appendChild(isNode ? argItem : document.createTextNode(String(argItem))); }); this.appendChild(docFrag); } }); });})([Element.prototype, Document.prototype, DocumentFragment.prototype]);
+(function (arr) { arr.forEach(function (item) { if (item.hasOwnProperty('append')) { return; } Object.defineProperty(item, 'append', { configurable: true, enumerable: true, writable: true, value: function append() { var argArr = Array.prototype.slice.call(arguments), docFrag = document.createDocumentFragment(); argArr.forEach(function (argItem) { var isNode = argItem instanceof Node; docFrag.appendChild(isNode ? argItem : document.createTextNode(String(argItem))); }); this.appendChild(docFrag); } }); });})([Element.prototype, Document.prototype, DocumentFragment.prototype]);
+})();
+window.VideoFXTools = window.VideoFXTools || {};
+window.VideoFXTools.promptless = { createUI, overlayId: OVERLAY_ID };
+
+(function () {
+    'use strict';
+    const MODAL_ID = 'vfx-analysis-modal';
+    const BACKDROP_ID = 'vfx-analysis-backdrop';
+    const TAB_DECON = 'decon';
+    const TAB_I2P = 'i2p';
+    let initialized = false;
+    let modal, backdrop, deconTab, i2pTab, deconContainer, i2pContainer;
+
+    function iconHTML(name) {
+        return `<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
+    }
+
+    function switchTab(tab) {
+        deconTab.classList.toggle('active', tab === TAB_DECON);
+        i2pTab.classList.toggle('active', tab === TAB_I2P);
+        deconContainer.style.display = tab === TAB_DECON ? 'block' : 'none';
+        i2pContainer.style.display = tab === TAB_I2P ? 'block' : 'none';
+    }
+
+    function closeModal() {
+        if (!modal) return;
+        backdrop.style.opacity = '0';
+        modal.classList.remove('visible');
+        modal.addEventListener('transitionend', () => {
+            modal.style.display = 'none';
+            backdrop.style.display = 'none';
+            document.body.style.overflow = '';
+        }, { once: true });
+    }
+
+    function createModal() {
+        if (initialized) return;
+        initialized = true;
+        GM_addStyle(`
+            #${BACKDROP_ID} { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.6); z-index:9998; opacity:0; transition:opacity .25s; }
+            #${MODAL_ID} { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%) scale(.95); background:var(--dark-bg-primary); color:var(--dark-text-primary); border-radius:var(--ui-radius); box-shadow:0 8px 25px var(--shadow-strong-color); z-index:9999; width:clamp(520px,60%,780px); max-height:90vh; border:1px solid var(--dark-border); opacity:0; transition:opacity .25s, transform .25s; flex-direction:column; overflow:hidden; }
+            #${MODAL_ID}.visible { opacity:1; transform:translate(-50%,-50%) scale(1); }
+            #${MODAL_ID} header { display:flex; justify-content:space-between; align-items:center; padding:16px 24px; border-bottom:1px solid var(--dark-border); }
+            #${MODAL_ID} .analysis-tabs { display:flex; gap:12px; padding:16px 24px 0 24px; }
+            #${MODAL_ID} .analysis-tabs button { background:var(--dark-bg-tertiary); border:none; border-radius:var(--ui-radius); color:var(--dark-text-primary); padding:8px 16px; cursor:pointer; }
+            #${MODAL_ID} .analysis-tabs button.active { background:var(--dark-accent-blue); color:var(--dark-button-text-on-blue); }
+            #${MODAL_ID} .analysis-content { flex-grow:1; overflow-y:auto; padding:20px 24px; }
+        `);
+        backdrop = document.createElement('div');
+        backdrop.id = BACKDROP_ID;
+        backdrop.addEventListener('click', closeModal);
+        modal = document.createElement('div');
+        modal.id = MODAL_ID;
+        const header = document.createElement('header');
+        const title = document.createElement('h3');
+        title.textContent = 'VideoFX Tools';
+        const closeBtn = document.createElement('button');
+        closeBtn.className = 'vfx-modal-button icon-only';
+        closeBtn.innerHTML = iconHTML('close');
+        closeBtn.addEventListener('click', closeModal);
+        header.append(title, closeBtn);
+        const tabs = document.createElement('div');
+        tabs.className = 'analysis-tabs';
+        deconTab = document.createElement('button');
+        deconTab.textContent = 'Deconstructor';
+        deconTab.onclick = () => switchTab(TAB_DECON);
+        i2pTab = document.createElement('button');
+        i2pTab.textContent = 'Image-to-Prompt';
+        i2pTab.onclick = () => switchTab(TAB_I2P);
+        tabs.append(deconTab, i2pTab);
+        const content = document.createElement('div');
+        content.className = 'analysis-content';
+        deconContainer = document.createElement('div');
+        i2pContainer = document.createElement('div');
+        content.append(deconContainer, i2pContainer);
+        modal.append(header, tabs, content);
+        document.body.append(backdrop, modal);
+
+        const tools = window.VideoFXTools || {};
+        if (tools.deconstructor) {
+            tools.deconstructor.createUI();
+            const el = document.getElementById(tools.deconstructor.overlayId);
+            document.body.contains(el) && document.body.removeChild(el);
+            const bd = document.querySelector('.decon-backdrop');
+            if (bd) bd.remove();
+            el.style.position = 'static';
+            el.style.transform = 'none';
+            el.style.display = 'block';
+            deconContainer.appendChild(el);
+        }
+        if (tools.promptless) {
+            tools.promptless.createUI();
+            const el = document.getElementById(tools.promptless.overlayId);
+            document.body.contains(el) && document.body.removeChild(el);
+            const bd = document.querySelector('.generator-backdrop');
+            if (bd) bd.remove();
+            el.style.position = 'static';
+            el.style.transform = 'none';
+            el.style.display = 'block';
+            i2pContainer.appendChild(el);
+        }
+        switchTab(TAB_DECON);
+    }
+
+    function openModal(initialTab) {
+        if (!initialized) createModal();
+        const tab = initialTab === TAB_I2P ? TAB_I2P : TAB_DECON;
+        switchTab(tab);
+        backdrop.style.display = 'block';
+        modal.style.display = 'flex';
+        setTimeout(() => { backdrop.style.opacity = '1'; modal.classList.add('visible'); }, 10);
+        document.body.style.overflow = 'hidden';
+    }
+
+    window.openAnalysisModal = openModal;
 })();
